@@ -93,7 +93,6 @@ public:
     bool operator > (const VectorIterator& other) const{
         return l_Ptr>other.l_Ptr;
     }
-
     bool operator < (const VectorIterator& other) const{
         return l_Ptr<other.l_Ptr;
     }
@@ -257,7 +256,10 @@ public:
     template<typename... Args>
     void emplaceback(Args&&... args){
         //creates array element type(ex. structs) from given arguments and inserts it at the back
-        pushback(T(forward<Args>(args)...));
+        if(l_Size >= l_Cap){
+            alloc(2*l_Size);
+        }
+        new(&list[++l_Size - 1]) T(forward<Args>(args)...);
     }
 
     T& operator[](size_t index){
@@ -327,8 +329,6 @@ public:
         index_check(end);
         quicksort(start, end, true);
     }
-
-
 
     Iterator begin(){
         //returns an iterator at the first element of array
