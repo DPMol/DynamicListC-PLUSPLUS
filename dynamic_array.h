@@ -403,6 +403,7 @@ public:
         if (list_size >= list_capacity) {
             realloc(2 * list_capacity);
         }
+        index_check(position);
 
         memmove(list + position + 1, list + position, sizeof(value_pointer) * (list_size++ - position));
         /*
@@ -569,7 +570,6 @@ public:
             for(int j = 0; j < list_size; j++)
                 if(!cmp(*list[i], *list[j]) == reverse)
                     swap(list[i], list[j]);
-        std::cout<<"bota\n";
     }
 
     /**
