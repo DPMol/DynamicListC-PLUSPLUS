@@ -1,5 +1,7 @@
 #pragma once
 #include <functional>
+#include <iostream>
+#include <cstring>
 
 //Iterator
 template<typename array>
@@ -24,7 +26,7 @@ public:
      * Allows use of dereference*  operator.
      * @return Dereferenced value.
      */
-    value_reference operator*(){
+    typename array::value_type& operator*(){
         return **iterator_pointer;
     }
 
@@ -116,7 +118,7 @@ public:
      * @return (*iterator).
      */
     array_iterator operator->(){
-        return iterator_pointer;
+        return *iterator_pointer;
     }
 
     /**
@@ -199,7 +201,7 @@ template <typename T>
 class array {
 public:
     using value_type = T;
-    using value_pointer = T *;
+    using value_pointer = T*;
     using iterator = array_iterator<array<T>>;
 
 private:
@@ -270,18 +272,27 @@ public:
         list_size = other.list_size;
         for (auto i = 0; i < list_size; i++) {
             list[i] = (value_pointer) ::operator new(sizeof(value_type));
-            *list[i] = *other.list[i];
+            new(list[i]) value_type(*other.list[i]);
         }
     }
 
     /**
      * Allows use of == operator between arrays.
      * @param other Array to be compared.
-     * @return True if both arrays point to the same list.\na
+     * @return True if both arrays contain the same list.\na
      * False otherwise.
      */
     bool operator==(const array<value_type> &other) const{
-        return list == other.list;
+
+        if(list_size!=other.list_size)
+            return false;
+
+        for(auto i = 0; i <list_size; i++)
+            if (*list[i] != *other.list[i])
+                return false;
+
+
+        return true;
     }
 
     /**
@@ -290,12 +301,11 @@ public:
      * @return Returns destination array reference after copy.
      */
     array& operator=(const array<value_type> &other){
-        if(*this == other)
+        if(this == &other)
             return *this;
         clear();
         for(auto i = 0; i < other.list_size; i++){
-            list[i]->~T();
-            *list[i] = *other.list[i];
+            push_back(*other.list[i]);
         }
         list_size = other.list_size;
         return *this;
@@ -352,7 +362,16 @@ public:
             realloc(2 * list_capacity);
         }
         list[list_size] = (value_pointer) ::operator new(sizeof(value_type));
-        *list[list_size++] = std::move(value);
+        new(list[list_size++]) value_type(std::move(value));
+    }
+
+    template<typename... Args>
+    void emplace_back(Args&&... args){
+        if (list_size >= list_capacity) {
+            realloc(2 * list_capacity);
+        }
+        list[list_size] = (value_pointer) ::operator new(sizeof(value_type));
+        new(list[list_size++]) value_type(value_type(std::forward<Args>(args)...));
     }
 
     /**
@@ -455,7 +474,7 @@ public:
      * Return an iterator at the start of the array.
      * @return Begin iterator.
      */
-    iterator begin() {
+    iterator begin() const{
         return iterator(list);
     }
 
@@ -463,7 +482,7 @@ public:
      * Return an iterator just outside the end of the array.
      * @return End iterator.
      */
-    iterator end() {
+    iterator end() const{
         return iterator(list + list_size);
     }
 
@@ -482,7 +501,7 @@ public:
      * Return an iterator at the end of the array.
      * @return Reverse begin iterator.
      */
-    iterator rbegin() {
+    iterator rbegin() const{
         return iterator(list + list_size - 1);
     }
 
@@ -490,7 +509,7 @@ public:
      * Return an iterator just outside the start of the array.
      * @return Reverse end iterator.
      */
-    iterator rend() {
+    iterator rend() const{
         return iterator(list - 1);
     }
 
@@ -510,12 +529,28 @@ public:
         return out;
     }
 
+//    /**
+//     * Function that allows std::fout<< for array.
+//     * @param out Operator from std::fout.
+//     * @param arr Reference to array.
+//     * @return Array elements converted to std::fout.
+//     */
+//    friend std::ofstream &operator<<(std::ofstream &out, const array &arr) {
+//        out << [;
+//        for (long long i = 0; i < arr.list_size - 1; i++)
+//            out << *(arr.list[i]) << ", ";
+//        if (arr.list_size > 0)
+//            out << arr.back();
+//        out << "]";
+//        return out;
+//    }
+
     /**
      * Sort function using interchange sort.
      * @param cmp Optional compare parameter.\n
      * Must return an integer and contain 2 elements of array type as parameters.
      */
-    void sort(std::function<int(const value_type , const value_type)> cmp = [](const value_type a, const value_type b){return a < b;}){
+    void sort(std::function<int(const value_type& , const value_type&)> cmp = [](const value_type& a, const value_type& b){return a < b;}){
         for(int i = 0; i < list_size; i++)
             for(int j = 0; j < list_size; j++)
                 if(!cmp(*list[i], *list[j]))
@@ -528,11 +563,13 @@ public:
      * @param cmp Optional compare parameter.\n
      * Must return an integer and contain 2 elements of arrays type as parameters.
      */
-    void sort(bool reverse, std::function<int(const value_type , const value_type)> cmp = [](const value_type a, const value_type b){return a < b;}){
+    void sort(bool reverse, std::function<int(const value_type& , const value_type&)> cmp = [](const value_type& a, const value_type& b){return a < b;}){
+        std::cout<<"alin\n";
         for(int i = 0; i < list_size; i++)
             for(int j = 0; j < list_size; j++)
-                if(cmp(*list[i], *list[j]) == reverse)
+                if(!cmp(*list[i], *list[j]) == reverse)
                     swap(list[i], list[j]);
+        std::cout<<"bota\n";
     }
 
     /**
@@ -549,7 +586,7 @@ public:
      * Must return integer and accept 1 element of arrays type as parameter.
      * @return New filtered list.
      */
-    array filter(std::function<int(const value_type)> cmp){
+    array filter_get(std::function<int(const value_type)> cmp){
         array<value_type> new_array;
         for(auto i: *this)
             if(cmp(i))
@@ -559,31 +596,49 @@ public:
     }
 
     /**
+     * Filters array with given function.
+     * @param cmp Filter function.\n
+     * Must return integer and accept 1 element of arrays type as parameter.
+     */
+    void filter(std::function<int(const value_type)> cmp){
+        long long i = 0;
+        while(i<list_size)
+            if(!cmp(*list[i]))
+                pop(i);
+            else
+                i++;
+    }
+
+    /**
      * Return position of first instance of given value in array.\n
-     * If no instance is found function will return an out of range index.
+     * If no instance is found function will return -1.
      * @param value Element to be searched.
      * @return Position of value in array.
      */
-    long long search(const value_type value){
+    long long search(const value_type& value){
         long long i = 0;
-        while(*list[i] != value && i < list_size){
+        while(i < list_size){
+
+            if(*list[i] == value)
+                return i;
             i++;
         }
-        return i;
+        return -1;
     }
 
     /**
      * Return position of last instance of given value in array.\n
-     * If no instance is found function will return an out of range index.
+     * If no instance is found function will return -1.
      * @param value Element to be searched.
      * @return Position of value in array.
      */
-    long long rsearch(const value_type value){
+    long long rsearch(const value_type& value){
         long long i = list_size - 1;
-        while(*list[i] != value && i >= 0){
-            i--;
+        while(i >= 0){
+            if(*list[i] == value)
+                return i;
         }
-        return i;
+        return -1;
     }
 };
 

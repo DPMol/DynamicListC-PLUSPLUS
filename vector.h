@@ -127,7 +127,7 @@ private:
         }
 
         for(auto i = 0; i<l_Size && i <newsize;i++)
-            newlist[i] = move(list[i]);
+            new(&newlist[i]) T(move(list[i]));
 
         delete[] list;
         list = newlist;
@@ -171,6 +171,7 @@ public:
 
     //destructor
     ~Vector(){
+        clear();
         delete[] list;
     }
 
@@ -251,6 +252,12 @@ public:
             alloc(2*l_Size);
         }
         list[++l_Size - 1] = element;
+    }
+
+    void clear(){
+        for(auto i = 0;i < l_Size; i++)
+            list[i].~T();
+        l_Size = 0;
     }
 
     template<typename... Args>
